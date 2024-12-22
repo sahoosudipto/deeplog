@@ -4,6 +4,9 @@ import logging
 import pandas as pd
 from spellpy import spell
 
+from clearml import Task
+from clearml import Logger   
+
 logging.basicConfig(level=logging.WARNING,
                     format='[%(asctime)s][%(levelname)s]: %(message)s')
 logger = logging.getLogger(__name__)
@@ -31,6 +34,19 @@ def deeplog_file_generator(filename, df):
 
 
 if __name__ == '__main__':
+    Task.set_credentials(
+     api_host="https://api.clear.ml",
+     web_host="https://app.clear.ml",
+     files_host="https://files.clear.ml",
+     key='DIL5YU0YE1NNR1IDFPHIRGQVDTSUP8',
+     secret='9lUrgFOsh6pz57mY54DgjekKCwF-7jCbBRSc8nAWnaNGPWkODPLK62qBQ89igm7O-yo'
+    )
+
+    task = Task.init(
+        project_name="AnomalyDeepLog",  # Project name
+        task_name="Preprocessing",     # Task name
+        task_type=Task.TaskTypes.training   # Task type
+    )
     ##########
     # Parser #
     ##########
@@ -53,7 +69,9 @@ if __name__ == '__main__':
 
     for log_name in ['openstack_abnormal.log', 'openstack_normal2.log', 'openstack_normal1.log']:
         parser.parse(log_name)
+        task.get_logger().report_text(f'Parsed logfile: {log_name}')
 
+    
     ##################
     # Transformation #
     ##################
@@ -66,6 +84,7 @@ if __name__ == '__main__':
         event_id_map[event_id] = i
 
     logger.info(f'length of event_id_map: {len(event_id_map)}')
+    task.get_logger().report_text(f'length of event_id_map: {len(event_id_map)}')
 
     #########
     # Train #
@@ -84,3 +103,9 @@ if __name__ == '__main__':
     #################
     deeplog_test_abnormal = deeplog_df_transfer(df_abnormal, event_id_map)
     deeplog_file_generator('test_abnormal', deeplog_test_abnormal)
+
+
+    task.upload_artifact(name='EventID Map', artifact_object=event_id_map)
+    task.upload_artifact(name='Train File', artifact_object='train')
+    task.upload_artifact(name='Test Normal File', artifact_object='test_normal')
+    task.upload_artifact(name='Test Abnormal File', artifact_object='test_abnormal')
